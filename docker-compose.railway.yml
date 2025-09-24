@@ -1,0 +1,66 @@
+# Alternative docker-compose for local testing before Railway deployment
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: metamcp-railway-test
+    ports:
+      - "12008:12008"
+    environment:
+      # Database connection (for local PostgreSQL)
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: metamcp_user
+      POSTGRES_PASSWORD: m3t4mcp
+      POSTGRES_DB: metamcp_db
+      DATABASE_URL: postgresql://metamcp_user:m3t4mcp@postgres:5432/metamcp_db
+      
+      # Application URLs
+      APP_URL: http://localhost:12008
+      NEXT_PUBLIC_APP_URL: http://localhost:12008
+      
+      # Auth secret
+      BETTER_AUTH_SECRET: your-super-secret-key-change-this-in-production
+      
+      # Node.js optimization
+      NODE_OPTIONS: "--max-old-space-size=8192"
+      
+      # MCP settings
+      MCP_SESSION_TIMEOUT: 300000
+      MCP_MAX_SESSIONS: 10
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - metamcp-network
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: metamcp-pg-railway-test
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: metamcp_db
+      POSTGRES_USER: metamcp_user
+      POSTGRES_PASSWORD: m3t4mcp
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U metamcp_user -d metamcp_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - metamcp-network
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  metamcp-network:
+    driver: bridge
